@@ -1,0 +1,32 @@
+
+
+# pla6's Ring
+# ring = Entity(model=load_model('fdg.blend'),
+#               shader=lit_with_shadows_shader,
+#               collider='mesh',
+#               position=(pla6.x, pla6.y, pla6.z),
+#               scale=300,
+#               scale_y=1)
+# ring.color = color.white
+# ring.rotation_x = 45
+# ring.reparent_to(pla6)
+
+
+
+
+# # Asteroids Belt
+# asteroid = Entity(model='asteroid', position=(1400, 0, 0), texture='asteroid', shader=lit_with_shadows_shader, scale=3.5)
+# asteroid.scale = 0.5
+# asteroid.color = color.light_gray
+# asteroid_t = pla7_t
+# asteroid_radius = 1400
+# asteroid_num_var = 360
+
+# for i in range(asteroid_num_var):
+#     clone = duplicate(asteroid, texture='asteroid', color=color.light_gray, shader=lit_with_shadows_shader)
+#     asteroid_t += 120
+#     clone.rotation = (random.randint(0, 360), random.randint(0, 360), random.randint(0, 360))
+#     clone.z = (random.randint(-50, 50))
+#     clone.x = np.cos(asteroid_t) * asteroid_radius
+#     clone.z = np.sin(asteroid_t) * asteroid_radius
+# asteroid.visible = False

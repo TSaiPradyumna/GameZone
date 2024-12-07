@@ -1,0 +1,121 @@
+#I plan on adding other scripts later to analyze different data sets. Currently I have written the script for one. But this is designed to be a general use program, so I want to get it out there now, but add features to it later. Hence all the initial inputs.
+A=input('Slow or Fast Exchange? (Type in "Slow" or "Fast")\n')
+if A == ('Slow').lower():
+    B=input('Will you be using both the free and bound state peaks? (Type in "Yes" or "No")\n')
+    if B==('Yes').lower():
+        print ('Slow Exchange analysis using both states is not developed yet')
+    else:
+        C=input('Will you be using the free or bound state peaks? (Type in "Free" or "Bound")\n')
+        if C==('Free').lower():
+            print ('Loading up Slow Exchange Script')
+            import re
+            import os
+            import pandas as pd
+            import numpy as np
+            import matplotlib.pyplot as plt
+            from scipy.optimize import curve_fit
+#This is where the user inputs where the files they will be calling are stored. To make this more general user friendly, I automatically fill the drive and user portion
+            main_path=(r'C:\Users\Sams PC')
+            next_path=input('Please indicate the folder the files are. E.g. /Desktop/Peaklists \n')
+            full_path=main_path+next_path
+            os.chdir(full_path)
+#The data that will be analyzed is split into 3 sections. One is the experimental data itself (Titration_files), the settings they used to obtain the experimental data (Concentrations), and a normalization factor (Dilution)
+            Titration_files = []
+            Data_Table = []
+            Peak_Height = []
+            Titration_file_input = ''
+            Peak_Names=[]
+            Dilutions=input('Enter name of Dilution file.\n')
+            Concentrations=input('Enter name of Concentration file.\n')
+# This is designed so the user can input in as many files as they desire. And if they misspell, or accidently add an extra file or forget a file, the script will still continue.
+            print('Enter name of peaklist files. When finished, type done and enter to stop.')
+            while True:
+                    Titration_file_input = input()
+                    if Titration_file_input.lower() not in ['done']:
+                            Titration_files.append(Titration_file_input)
+                    else:
+                        break
+
+            for Data in Titration_files:
+                try:
+                    Titration_Datatable = pd.read_csv(Data, sep='\s+', header=None)
+                    Titration_Datatable.columns=['Column_1','Column_2','Column_3', 'Column_4', 'Column_5']
+                    Data_Table.append(Titration_Datatable)
+                except:
+                    print('File' + ' ' + Data + ' ' + 'not found')
+
+#The input of Titration_Data comes from a specific program that has the required data stored in Column 4. I am creating a second table from Column 1 to use when saving the plots and savefiles.
+            for Titration_Datatable in Data_Table:
+                Peak_Height.append(Titration_Datatable.loc[:,'Column_4'])
+                Peak_Names.append(Titration_Datatable.loc[:,'Column_1'].drop([0],axis=0).drop([1],axis=0))
+#The first row in the datatable automatically is labeled Data, so that is removed. The 2nd row also has miscellanious info. The .astype is because I had to define them as integers, otherwise I would get errors at the division step below. 
+            concatenated_Titration_Datatable = pd.concat(Peak_Height, axis=1).drop([0],axis=0).drop([1],axis=0).astype(int)
+            Dilutions=pd.read_csv('Dilution.txt', sep='\s+', header=None)
+#The Data may sometimes have negative values, which can be considered the same as zero in this case.
+            Combined=concatenated_Titration_Datatable.clip(lower=0)
+#The Data now needs to be normalized to account for Dilution (this is introduced in the experimental setup), the values are defined by a txt file the user uploads.
+            Normalized=(Combined/Dilutions.values)
+#It appears easier to do data modifications with a numpy matrix rather than with pandas, so I converted this to numpy. I also had to do it for the function below as well.
+            M=pd.DataFrame.to_numpy(Normalized)
+#The below function is part of Data processing. It's an equation for analyzing the data.
+            J=(M[:, :1]-M)/((M[:, :1]-M)+ M)
+
+            Titration_Data=J
+            Concentrations=np.loadtxt('Concentrations.txt')
+            Protein=Concentrations[:,0]
+            Ligand=Concentrations[:,1]
+            Input_Data=[Protein,Ligand]
+            x=Input_Data[1]
+            A=Input_Data[0]
+            B=Input_Data[0]+Input_Data[1]
+            C=Input_Data[1]
+#To be able to save the Peak_Names list above as a png for the graphs below, I had to convert to a nupy array first. But this would cause errors since its a matrix, thus I removed all the repeats, giving me a 1D array.
+            Peak_Names_ar=np.array(Peak_Names)
+            Peak_Names_array=np.unique(Peak_Names_ar)
+#I have setup the values A,B, and C because it makes the below equation cleaner and easier. The only reason x is defined is because I couldn't run the function without it, although it doesn't appear to effect the output.
+            def fun(x, kd):
+                return np.array((B+kd-np.sqrt(((B+kd)**2)-4*A*C))/(2*A))
+#For each iteration of the function, I want to save the output of the fit (kD), the standard deviation of that fit, and R2 (goodness of fit). I'm also saving each plot, and using the above Peak_Names file to do so.
+            kD=[]
+            r2=[]
+            standard_deviation=[]
+            output_for_graphing=[]
+            for values,i in zip(Titration_Data,Peak_Names_array):
+                Intensity=[values]
+                Intensity_Array=np.array(Intensity)
+                y=Intensity_Array.flatten()
+                popt, pcov = curve_fit(fun, x, y)
+                kD.append(popt)
+                fun_data=fun(x,*popt)
+                output_for_graphing.append(fun_data)
+                residuals=y-fun(x, popt)
+                ss_res=np.sum(residuals**2)
+                ss_tot=np.sum((y-np.mean(y))**2)
+                r_squared=1-(ss_res/ss_tot)
+                r2.append(r_squared)
+                std = np.sqrt(np.diag(pcov))
+                standard_deviation.append(std)
+                plt.plot(x, y, label='data')
+                plt.plot(x, fun(x, *popt), label='fitted')
+                plt.xlabel('Ligand Concentration')
+                plt.ylabel('Intensity')
+                plt.title([i])
+                plt.grid()
+                plt.legend()
+                files_to_save=str([i])+'.png'
+                plt.savefig(files_to_save)
+                plt.show()
+#I'm saving the output of the function as well, in case someone wants to graph it for themselves and doesn't like matplotlibs display.
+            np.savetxt('Output for graphing.txt',output_for_graphing)
+#I need to flatten the arrays to be able to stack them (I get an error otherwise)
+            kD_array=np.array(kD).flatten()
+            r2_array=np.array(r2).flatten()
+            standard_deviation_array=np.array(standard_deviation).flatten()
+            Dissociation_Constant=np.stack((kD_array,standard_deviation_array,r2_array),axis=-1)
+# I realized after the fact that I wanted to add an extra column to the above matrix. But since numpy doesn't seem to have an insert command, and I didn't want to break the matrix I already had, I thought it might be easier to just change it to a pandas datatable.
+            Dissociaton_Constant_Table=pd.DataFrame(Dissociation_Constant)
+            Dissociaton_Constant_Table.columns=['kD', 'Standard Deviation', 'R2']
+            Dissociaton_Constant_Table.insert(0,'Files',Peak_Names_array)
+            Dissociaton_Constant_Table.to_csv('Dissociation_Constant.txt', sep='\t', index=False)
+        else:
+            print ('Slow exchange analysis for the bound peak is not developed yet')
